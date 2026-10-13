@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux, from the inside — an interactive systems map</title>
+<meta name="description" content="A visual, interactive map of how Linux actually works: kernel, processes, isolation, systemd, packages, building, networking, DNS, containers, containerd and Kubernetes internals.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<!-- global SVG defs: markers + gradients. Kept at 0x0 (NOT display:none, which breaks references). -->
+<svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>
+  <marker id="lm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+  </marker>
+  <marker id="lm-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+  </marker>
+  <marker id="lm-arrow-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+  </marker>
+  <marker id="lm-arrow-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/>
+  </marker>
+  <marker id="lm-arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/>
+  </marker>
+  <marker id="lm-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+    <circle cx="5" cy="5" r="4" fill="var(--accent)"/>
+  </marker>
+  <linearGradient id="lm-grad-accent" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.30"/>
+    <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.05"/>
+  </linearGradient>
+  <linearGradient id="lm-grad-violet" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="var(--violet)" stop-opacity="0.28"/>
+    <stop offset="100%" stop-color="var(--violet)" stop-opacity="0.05"/>
+  </linearGradient>
+  <linearGradient id="lm-grad-ok" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="var(--ok)" stop-opacity="0.28"/>
+    <stop offset="100%" stop-color="var(--ok)" stop-opacity="0.05"/>
+  </linearGradient>
+</defs></svg>
+
+<div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+<header class="topbar">
+  <button class="icon-btn only-mobile" id="navToggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="#top">
+    <span class="brand-mark">$_</span>
+    <span class="brand-text">Linux, from the inside</span>
+  </a>
+  <div class="search-wrap">
+    <input id="search" type="search" placeholder="Search everything…  (press /)" autocomplete="off" spellcheck="false">
+    <div class="search-results" id="searchResults" hidden></div>
+  </div>
+  <div class="top-actions">
+    <button class="btn ghost" id="glossaryBtn" title="Glossary">Glossary</button>
+    <button class="btn ghost" id="themeBtn" title="Toggle light / dark">Theme</button>
+    <button class="btn" id="printBtn" title="Print or save as PDF">PDF</button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <nav id="toc" class="toc"></nav>
+    <div class="sidebar-foot">
+      <p><strong>Print / save as PDF:</strong> press <kbd>P</kbd> or use the <em>PDF</em> button above, then choose <em>Save as PDF</em>. All diagrams and colours are print-safe.</p>
+    </div>
+  </aside>
+
+  <main id="main" class="main"></main>
+</div>
+
+<footer class="sitefoot">
+  <p><strong>Linux, from the inside</strong> — one self-contained page. No network calls, no trackers, no build step. Open <code>index.html</code> from disk and it works.</p>
+  <p class="dim">Written against Debian/Ubuntu + systemd, cross-checked against a real Ubuntu&nbsp;18.04 VPS (systemd&nbsp;237, kernel&nbsp;4.15, cgroups&nbsp;v1, iptables&nbsp;1.6 legacy, systemd-resolved, nginx&nbsp;1.14, BIND&nbsp;9.11, ufw&nbsp;0.36). Where modern systems differ (cgroups&nbsp;v2, nftables, kernels 6.x) it is called out inline.</p>
+</footer>
+
+<!-- lightbox for diagram zoom -->
+<div class="lightbox" id="lightbox" hidden>
+  <div class="lightbox-bar">
+    <span class="lightbox-title" id="lightboxTitle"></span>
+    <span class="lightbox-hint">drag to pan · scroll to zoom · <kbd>Esc</kbd> to close</span>
+    <button class="btn ghost" id="lightboxClose">Close</button>
+  </div>
+  <div class="lightbox-stage" id="lightboxStage">
+    <div class="lightbox-canvas" id="lightboxCanvas"></div>
+  </div>
+</div>
+
+<!-- glossary drawer -->
+<div class="drawer" id="drawer" hidden>
+  <div class="drawer-panel" role="dialog" aria-label="Glossary">
+    <div class="drawer-head">
+      <h2>Glossary</h2>
+      <input id="glossarySearch" type="search" placeholder="Filter terms…">
+      <button class="btn ghost" id="drawerClose">Close</button>
+    </div>
+    <div class="drawer-body" id="glossaryBody"></div>
+  </div>
+</div>
+
+<!-- chapter data: order here is the order on the page -->
+<script src="assets/boot.js"></script>
+<script src="assets/chapters/ch00-map.js"></script>
+<script src="assets/chapters/ch01-boot.js"></script>
+<script src="assets/chapters/ch02-kernel.js"></script>
+<script src="assets/chapters/ch03-processes.js"></script>
+<script src="assets/chapters/ch04-isolation.js"></script>
+<script src="assets/chapters/ch05-filesystem.js"></script>
+<script src="assets/chapters/ch06-systemd.js"></script>
+<script src="assets/chapters/ch07-packaging.js"></script>
+<script src="assets/chapters/ch08-build.js"></script>
+<script src="assets/chapters/ch09-networking.js"></script>
+<script src="assets/chapters/ch10-dns.js"></script>
+<script src="assets/chapters/ch11-services.js"></script>
+<script src="assets/chapters/ch12-storage.js"></script>
+<script src="assets/chapters/ch13-containers.js"></script>
+<script src="assets/chapters/ch14-kubernetes.js"></script>
+<script src="assets/chapters/ch15-security.js"></script>
+<script src="assets/chapters/ch16-troubleshooting.js"></script>
+<script src="assets/chapters/ch17-cheatsheet.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
